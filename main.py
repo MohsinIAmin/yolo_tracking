@@ -15,12 +15,27 @@ def main():
 
     model = YOLO("yolov8n.pt")
     model.fuse()
+    akaze = cv2.AKAZE_create(
+        descriptor_type=cv2.AKAZE_DESCRIPTOR_MLDB,  # Descriptor type: MLDB or KAZE
+        descriptor_size=0,  # Size of the descriptor in bits (0 for full-size)
+        descriptor_channels=3,  # Number of channels in the descriptor
+        threshold=0.001,  # Detector response threshold to accept/reject keypoints
+        nOctaves=4,  # Maximum octave evolution of the image
+        nOctaveLayers=4,  # Default number of sublevels per scale level
+        diffusivity=cv2.KAZE_DIFF_CHARBONNIER,  # Diffusivity type (DIFF_PM_G1, DIFF_PM_G2, DIFF_WEICKERT or DIFF_CHARBONNIER)
+    )
+
     for frame_number, result in enumerate(
         model.track(
             source="test.mp4", show=False, stream=True, agnostic_nms=True, persist=True
         )
     ):
         frame = result.orig_img
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        keypoints, _ = akaze.detectAndCompute(gray_frame, None)
+        frame_with_keypoints = cv2.drawKeypoints(
+            frame, keypoints, None, color=(0, 255, 0), flags=0
+        )
         detections = sv.Detections.from_yolov8(result)
 
         if result.boxes.id is not None:
@@ -37,20 +52,19 @@ def main():
                 bbox = tuple(map(int, bbox))
 
                 # Extract the box from the frame
-                box_image = frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
+                box_image = frame_with_keypoints[bbox[1] : bbox[3], bbox[0] : bbox[2]]
                 tracker_dir = f"track_{tracker_id}"
                 os.makedirs(tracker_dir, exist_ok=True)
 
                 # Save the box image to a file
                 image_filename = f"track_{tracker_id}/frame_{frame_number}.jpg"
-                print(image_filename)
                 cv2.imwrite(image_filename, box_image)
 
-        frame = box_annotator.annotate(
-            scene=frame, detections=detections, labels=labels
+        frame_with_keypoints = box_annotator.annotate(
+            scene=frame_with_keypoints, detections=detections, labels=labels
         )
 
-        cv2.imshow("yolov8", frame)
+        cv2.imshow("yolov8", frame_with_keypoints)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
