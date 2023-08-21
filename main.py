@@ -15,7 +15,7 @@ def main():
 
     model = YOLO("yolov8n.pt")
     model.fuse()
-    akaze = cv2.AKAZE_create(
+    detector = cv2.AKAZE_create(
         descriptor_type=cv2.AKAZE_DESCRIPTOR_MLDB,  # Descriptor type: MLDB or KAZE
         descriptor_size=0,  # Size of the descriptor in bits (0 for full-size)
         descriptor_channels=3,  # Number of channels in the descriptor
@@ -25,6 +25,18 @@ def main():
         diffusivity=cv2.KAZE_DIFF_CHARBONNIER,  # Diffusivity type (DIFF_PM_G1, DIFF_PM_G2, DIFF_WEICKERT or DIFF_CHARBONNIER)
     )
 
+    # detector = cv2.ORB_create(
+    #     nfeatures=5000,  # Maximum number of keypoints
+    #     scaleFactor=1.2,  # Pyramid decimation ratio
+    #     nlevels=8,  # Number of pyramid levels
+    #     edgeThreshold=31,  # Size of the border where features are not detected
+    #     firstLevel=0,  # Level of pyramid to put source image (0 means the original resolution)
+    #     WTA_K=2,  # Number of points producing each element of the oriented BRIEF descriptor
+    #     scoreType=cv2.ORB_HARRIS_SCORE,  # Type of the score
+    #     patchSize=31,  # Size of the patch used by the oriented BRIEF descriptor
+    #     fastThreshold=20,  # FAST threshold
+    # )
+
     for frame_number, result in enumerate(
         model.track(
             source="test.mp4", show=False, stream=True, agnostic_nms=True, persist=True
@@ -32,7 +44,7 @@ def main():
     ):
         frame = result.orig_img
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        keypoints, _ = akaze.detectAndCompute(gray_frame, None)
+        keypoints, _ = detector.detectAndCompute(gray_frame, None)
         frame_with_keypoints = cv2.drawKeypoints(
             frame, keypoints, None, color=(0, 255, 0), flags=0
         )
